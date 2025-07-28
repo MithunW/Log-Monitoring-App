@@ -4,7 +4,10 @@ This application processes system logs to track job execution times and generate
 Implemented by Mithun Wijethunga
 
 ---
-
+## ✅ Output
+The output file is specified using --output argument (default: output.log).
+Added in the repository root directory.
+---
 ## ✅ Features
 - **Batch Mode**: Reads the entire log file once and produces a report.
 - **Stream Mode (Real-Time)**: Monitors the log file continuously for new entries and updates the report dynamically.
