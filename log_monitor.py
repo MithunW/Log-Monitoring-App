@@ -1,7 +1,5 @@
+import argparse
 from datetime import datetime
-
-LOG_FILE = "logs.log"
-OUTPUT_FILE = "output.log"
 
 WARNING_THRESHOLD = 300  # 5 minutes in seconds
 ERROR_THRESHOLD = 600    # 10 minutes in seconds
@@ -32,7 +30,6 @@ def calculate_durations(entries):
     """
     start_times = {}
     results = []
-
     for entry in entries:
         pid = entry["pid"]
         if entry["status"] == "START":
@@ -49,36 +46,43 @@ def calculate_durations(entries):
             })
     return results
 
-def generate_report(results):
-    """
-    Print and write report to OUTPUT_FILE.
-    """
-    with open(OUTPUT_FILE, "w") as f:
+def evaluate_status(duration):
+    if duration > ERROR_THRESHOLD:
+        return "ERROR"
+    elif duration > WARNING_THRESHOLD:
+        return "WARNING"
+    return "OK"
+
+def generate_report(results, output_file):
+    with open(output_file, "w") as f:
         for res in results:
-            status = "OK"
-            if res["duration"] > ERROR_THRESHOLD:
-                status = "ERROR"
-            elif res["duration"] > WARNING_THRESHOLD:
-                status = "WARNING"
+            status = evaluate_status(res["duration"])
             line = (f"PID: {res['pid']} | Job: {res['job']} | Duration: {int(res['duration'])}s | "
                     f"Start: {res['start']} | End: {res['end']} | Status: {status}")
             print(line)
             f.write(line + "\n")
 
-def main():
+def run_batch(log_file, output_file):
     entries = []
     try:
-        with open(LOG_FILE, "r") as f:
+        with open(log_file, "r") as f:
             for line in f:
                 entry = parse_line(line)
                 if entry:
                     entries.append(entry)
     except FileNotFoundError:
-        print(f"Error: File '{LOG_FILE}' not found.")
+        print(f"Error: File '{log_file}' not found.")
         return
 
     results = calculate_durations(entries)
-    generate_report(results)
+    generate_report(results, output_file)
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Log Monitoring Application")
+    parser.add_argument("--logfile", default="logs.log", help="Path to the log file")
+    parser.add_argument("--output", default="output.log", help="Path to the output file")
+    parser.add_argument("--mode", choices=["batch"], default="batch", help="Mode (currently only batch supported)")
+    args = parser.parse_args()
+
+    if args.mode == "batch":
+        run_batch(args.logfile, args.output)
