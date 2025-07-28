@@ -11,6 +11,7 @@ def parse_line(line):
     """
     parts = [p.strip() for p in line.split(",")]
     if len(parts) != 4:
+        print(f"Skipping malformed line: {line.strip()}")
         return None
     try:
         timestamp = datetime.strptime(parts[0], "%H:%M:%S")
@@ -21,6 +22,7 @@ def parse_line(line):
             "pid": parts[3]
         }
     except ValueError:
+        print(f"Invalid timestamp in line: {line.strip()}")
         return None
 
 def calculate_durations(entries):
@@ -30,20 +32,27 @@ def calculate_durations(entries):
     """
     start_times = {}
     results = []
+
     for entry in entries:
         pid = entry["pid"]
         if entry["status"] == "START":
+            # Record job start
             start_times[pid] = (entry["timestamp"], entry["job"])
-        elif entry["status"] == "END" and pid in start_times:
-            start_time, job_name = start_times.pop(pid)
-            duration = (entry["timestamp"] - start_time).total_seconds()
-            results.append({
-                "pid": pid,
-                "job": job_name,
-                "duration": duration,
-                "start": start_time.strftime("%H:%M:%S"),
-                "end": entry["timestamp"].strftime("%H:%M:%S")
-            })
+        elif entry["status"] == "END":
+            if pid in start_times:
+                # Calculate duration if START exists
+                start_time, job_name = start_times.pop(pid)
+                duration = (entry["timestamp"] - start_time).total_seconds()
+                results.append({
+                    "pid": pid,
+                    "job": job_name,
+                    "duration": duration,
+                    "start": start_time.strftime("%H:%M:%S"),
+                    "end": entry["timestamp"].strftime("%H:%M:%S")
+                })
+            else:
+                # END without START
+                print(f"Warning: END without START for PID {pid}")
     return results
 
 def evaluate_status(duration):
@@ -74,8 +83,15 @@ def run_batch(log_file, output_file):
         print(f"Error: File '{log_file}' not found.")
         return
 
+    if not entries:
+        print("No valid entries found in the log file.")
+        return
+
     results = calculate_durations(entries)
-    generate_report(results, output_file)
+    if not results:
+        print("No complete START-END pairs found.")
+    else:
+        generate_report(results, output_file)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Log Monitoring Application")
