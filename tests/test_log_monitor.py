@@ -5,7 +5,7 @@ from log_monitor import LogMonitor
 class TestLogMonitor(unittest.TestCase):
 
     def setUp(self):
-        self.monitor = LogMonitor("dummy.log", "dummy_output.log")
+        self.monitor = LogMonitor("dummy.log", "dummy_output.log", 300, 600)  # Add thresholds
 
     # -------------------
     # BASIC FUNCTIONALITY TESTS

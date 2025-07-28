@@ -27,7 +27,8 @@ class TestEndToEnd(unittest.TestCase):
             os.remove(self.output_file)
 
     def test_end_to_end_processing(self):
-        monitor = LogMonitor(self.log_file, self.output_file)
+        monitor = LogMonitor(self.log_file, self.output_file, 300, 600)
+
         monitor.run_batch()
 
         # Verify output file exists
