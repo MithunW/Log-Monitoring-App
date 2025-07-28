@@ -1,0 +1,4 @@
+{
+    "warning_threshold_seconds": 300,
+    "error_threshold_seconds": 600
+}

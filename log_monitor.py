@@ -1,16 +1,19 @@
 import argparse
+import json
 import time
 from datetime import datetime
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-WARNING_THRESHOLD = 300  # 5 minutes
-ERROR_THRESHOLD = 600    # 10 minutes
+DEFAULT_WARNING = 300  # 5 minutes
+DEFAULT_ERROR = 600    # 10 minutes
 
 class LogMonitor:
-    def __init__(self, log_file, output_file):
+    def __init__(self, log_file, output_file, warning_threshold, error_threshold):
         self.log_file = log_file
         self.output_file = output_file
+        self.warning_threshold = warning_threshold
+        self.error_threshold = error_threshold
         self.start_times = {}
         self.results = []
 
@@ -46,14 +49,14 @@ class LogMonitor:
                     "start": start_time.strftime("%H:%M:%S"),
                     "end": entry["timestamp"].strftime("%H:%M:%S")
                 })
-                self.generate_report()  # Update report after every new complete job
+                self.generate_report()
             else:
                 print(f"Warning: END without START for PID {pid}")
 
     def evaluate_status(self, duration):
-        if duration > ERROR_THRESHOLD:
+        if duration > self.error_threshold:
             return "ERROR"
-        elif duration > WARNING_THRESHOLD:
+        elif duration > self.warning_threshold:
             return "WARNING"
         return "OK"
 
@@ -75,8 +78,6 @@ class LogMonitor:
                         self.process_entry(entry)
             if not self.results:
                 print("No complete START-END pairs found.")
-            else:
-                self.generate_report()
         except FileNotFoundError:
             print(f"Error: File '{self.log_file}' not found.")
 
@@ -88,34 +89,46 @@ class LogFileHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if event.src_path.endswith(self.monitor.log_file):
             with open(self.monitor.log_file, "r") as f:
-                for line in f.readlines()[-1:]:  # Read only the last line
+                for line in f.readlines()[-1:]:
                     entry = self.monitor.parse_line(line)
                     if entry:
                         self.monitor.process_entry(entry)
 
-def run_stream(monitor):
-    print(f"Starting real-time monitoring on {monitor.log_file}...")
-    event_handler = LogFileHandler(monitor)
-    observer = Observer()
-    observer.schedule(event_handler, ".", recursive=False)
-    observer.start()
+def load_config(config_path):
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+        with open(config_path, "r") as f:
+            config = json.load(f)
+            return (
+                config.get("warning_threshold_seconds", DEFAULT_WARNING),
+                config.get("error_threshold_seconds", DEFAULT_ERROR)
+            )
+    except FileNotFoundError:
+        print(f"No config file found. Using default thresholds.")
+    except json.JSONDecodeError:
+        print(f"Invalid config format. Using defaults.")
+    return DEFAULT_WARNING, DEFAULT_ERROR
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Log Monitoring Application")
-    parser.add_argument("--logfile", default="logs.log", help="Path to the log file")
-    parser.add_argument("--output", default="output.log", help="Path to the output file")
+    parser.add_argument("--logfile", default="logs.log", help="Path to log file")
+    parser.add_argument("--output", default="output.log", help="Path to output file")
     parser.add_argument("--mode", choices=["batch", "stream"], default="batch", help="Mode: batch or stream")
+    parser.add_argument("--config", default="config.json", help="Path to config file")
     args = parser.parse_args()
 
-    monitor = LogMonitor(args.logfile, args.output)
+    warning_threshold, error_threshold = load_config(args.config)
+    monitor = LogMonitor(args.logfile, args.output, warning_threshold, error_threshold)
 
     if args.mode == "batch":
         monitor.run_batch()
     else:
-        run_stream(monitor)
+        print(f"Starting real-time monitoring on {args.logfile}...")
+        observer = Observer()
+        observer.schedule(LogFileHandler(monitor), ".", recursive=False)
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
