@@ -1,6 +1,7 @@
 # Log Monitoring Application
 
 This application processes system logs to track job execution times and generate alerts if processing times exceed defined thresholds.
+Implemented by Mithun Wijethunga
 
 ---
 
