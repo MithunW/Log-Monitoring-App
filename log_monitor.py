@@ -124,7 +124,7 @@ if __name__ == "__main__":
     else:
         print(f"Starting real-time monitoring on {args.logfile}...")
         observer = Observer()
-        observer.schedule(LogFileHandler(monitor), ".", recursive=False)
+        observer.schedule(LogFileHandler(monitor), ".", recursive=False)    # Monitor current directory. recursive=False(not subdirectories) event handler=LogFileHandler(monitor)
         observer.start()
         try:
             while True:
